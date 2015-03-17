@@ -93,5 +93,7 @@
 
     <!-- Strings related to Notification preference -->
     <string name="pref_last_notification">last_notification</string>
+    <string name="application_version">Version</string>
+    <string name="pref_version_key">version</string>
 
 </resources>

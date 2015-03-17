@@ -24,4 +24,7 @@
         android:summaryOn="@string/pref_enable_notifications_true"
         android:defaultValue="@string/pref_enable_notifications_default" />
 
+    <Preference
+        android:title="@string/application_version"
+        android:key="@string/pref_version_key"/>
 </PreferenceScreen>

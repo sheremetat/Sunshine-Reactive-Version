@@ -17,6 +17,7 @@ package com.example.android.sunshine.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.preference.PreferenceManager;
 import android.text.format.Time;
 
@@ -245,5 +246,22 @@ public class Utility {
             return R.drawable.art_clouds;
         }
         return -1;
+    }
+
+    /**
+     * Helper method for read application version from package manager
+     *
+     * @param context application context
+     * @return string version
+     */
+    public static String getApplicationVersion(Context context){
+        String appVersion = "";
+        try {
+            appVersion = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0).versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return appVersion;
     }
 }
