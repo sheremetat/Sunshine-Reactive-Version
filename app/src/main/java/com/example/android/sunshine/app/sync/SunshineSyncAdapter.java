@@ -77,27 +77,11 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         String units = "metric";
         int numDays = 14;
 
-        ForecastService forecastService = RetrofitHelper.getForecastService();
-        forecastService.getDailyForecast(locationQuery, format, units, numDays)
-                .map(new Func1<DailyForecast, Vector<ContentValues>>() {
-                    @Override
-                    public Vector<ContentValues> call(DailyForecast dailyForecast) {
-                        return getContentValuesFromForecast(dailyForecast);
-                    }
-                })
-                .doOnNext(new Action1<Vector<ContentValues>>() {
-                    @Override
-                    public void call(Vector<ContentValues> contentValuesVector) {
-                        persistWeatherData(contentValuesVector);
-                    }
-                })
-                .subscribe(new Action1<Vector<ContentValues>>() {
-                    @Override
-                    public void call(Vector<ContentValues> contentValuesVector) {
-                        notifyWeather();
-                        Log.d(LOG_TAG, "Sync Complete. " + contentValuesVector.size() + " Inserted");
-                    }
-                });
+        RetrofitHelper.getForecastService()
+                .getDailyForecast(locationQuery, format, units, numDays)
+                .map(this::getContentValuesFromForecast)
+                .doOnNext(this::persistWeatherData)
+                .subscribe(contentValuesVector -> notifyWeather());
     }
 
     private Vector<ContentValues> getContentValuesFromForecast(DailyForecast dailyForecast) {
