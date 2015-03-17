@@ -2,6 +2,7 @@ package com.example.android.sunshine.app.api;
 
 import retrofit.http.GET;
 import retrofit.http.Query;
+import rx.Observable;
 
 /**
  * Sunshine-Version-2
@@ -11,8 +12,8 @@ public interface ForecastService {
     public String BASE_API_URL = "http://api.openweathermap.org/data/2.5";
 
     @GET("/forecast/daily")
-    DailyForecast getDailyForecast(@Query("q") String query,
+    Observable<DailyForecast> getDailyForecast(@Query("q") String query,
                                    @Query("mode") String mode,
                                    @Query("units") String units,
-                                   @Query("ctn") int days);
+                                   @Query("cnt") int days);
 }

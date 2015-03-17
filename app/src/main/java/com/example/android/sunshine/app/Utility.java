@@ -264,4 +264,12 @@ public class Utility {
         }
         return appVersion;
     }
+
+    public static int getJulianStartDay(){
+        Time dayTime = new Time();
+        dayTime.setToNow();
+
+        // we start at the day returned by local time. Otherwise this is a mess.
+        return Time.getJulianDay(System.currentTimeMillis(), dayTime.gmtoff);
+    }
 }

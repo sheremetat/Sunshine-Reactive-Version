@@ -39,6 +39,9 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import java.util.List;
 import java.util.Vector;
 
+import rx.functions.Action1;
+import rx.functions.Func1;
+
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
     // Interval at which to sync with the weather, in seconds.
@@ -69,48 +72,50 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     @Override
     public void onPerformSync(Account account, Bundle extras, String authority, ContentProviderClient provider, SyncResult syncResult) {
         Log.d(LOG_TAG, "Starting sync");
-        String locationQuery = Utility.getPreferredLocation(getContext());
+        final String locationQuery = Utility.getPreferredLocation(getContext());
         String format = "json";
         String units = "metric";
         int numDays = 14;
 
         ForecastService forecastService = RetrofitHelper.getForecastService();
-        if (forecastService != null) {
-            DailyForecast dailyForecasts = forecastService.getDailyForecast(locationQuery,
-                    format, units, numDays);
-            persistWeatherData(dailyForecasts, locationQuery);
-        }
+        forecastService.getDailyForecast(locationQuery, format, units, numDays)
+                .map(new Func1<DailyForecast, Vector<ContentValues>>() {
+                    @Override
+                    public Vector<ContentValues> call(DailyForecast dailyForecast) {
+                        return getContentValuesFromForecast(dailyForecast);
+                    }
+                })
+                .doOnNext(new Action1<Vector<ContentValues>>() {
+                    @Override
+                    public void call(Vector<ContentValues> contentValuesVector) {
+                        persistWeatherData(contentValuesVector);
+                    }
+                })
+                .subscribe(new Action1<Vector<ContentValues>>() {
+                    @Override
+                    public void call(Vector<ContentValues> contentValuesVector) {
+                        notifyWeather();
+                        Log.d(LOG_TAG, "Sync Complete. " + contentValuesVector.size() + " Inserted");
+                    }
+                });
     }
 
-    /**
-     * Take the String representing the complete forecast in JSON Format and
-     * pull out the data we need to construct the Strings needed for the wireframes.
-     * <p/>
-     * Fortunately parsing is easy:  constructor takes the JSON string and converts it
-     * into an Object hierarchy for us.
-     */
-    private void persistWeatherData(DailyForecast forecast,
-                                    String locationSetting) {
-        long locationId = addLocation(locationSetting, forecast.getCity().getName(),
-                forecast.getCity().getLocation().getLatitude(),
-                forecast.getCity().getLocation().getLongitude());
+    private Vector<ContentValues> getContentValuesFromForecast(DailyForecast dailyForecast) {
+        final String locationQuery = Utility.getPreferredLocation(getContext());
+        long locationId = addLocation(locationQuery, dailyForecast.getCity().getName(),
+                dailyForecast.getCity().getLocation().getLatitude(),
+                dailyForecast.getCity().getLocation().getLongitude());
 
-        List<DayForecast> weatherArray = forecast.getDailyForecastList();
+        List<DayForecast> weatherArray = dailyForecast.getDailyForecastList();
         // Insert the new weather information into the database
         Vector<ContentValues> cVVector = new Vector<ContentValues>(weatherArray.size());
 
-        Time dayTime = new Time();
-        dayTime.setToNow();
-
-        // we start at the day returned by local time. Otherwise this is a mess.
-        int julianStartDay = Time.getJulianDay(System.currentTimeMillis(), dayTime.gmtoff);
-
         // now we work exclusively in UTC
-        dayTime = new Time();
+        Time dayTime = new Time();
         int count = 0;
         for (DayForecast dayForecast : weatherArray) {
             // Cheating to convert this to UTC time, which is what we want anyhow
-            long dateTime = dayTime.setJulianDay(julianStartDay + count);
+            long dateTime = dayTime.setJulianDay(Utility.getJulianStartDay() + count);
 
             // These are the values that will be collected.
             ContentValues weatherValues = new ContentValues();
@@ -130,6 +135,18 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
             count++;
         }
+        return cVVector;
+    }
+
+    /**
+     * Take the String representing the complete forecast in JSON Format and
+     * pull out the data we need to construct the Strings needed for the wireframes.
+     * <p/>
+     * Fortunately parsing is easy:  constructor takes the JSON string and converts it
+     * into an Object hierarchy for us.
+     */
+    private void persistWeatherData(Vector<ContentValues> cVVector) {
+        Time dayTime = new Time();
 
         // add to database
         if (cVVector.size() > 0) {
@@ -140,12 +157,9 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             // delete old data so we don't build up an endless history
             getContext().getContentResolver().delete(WeatherContract.WeatherEntry.CONTENT_URI,
                     WeatherContract.WeatherEntry.COLUMN_DATE + " <= ?",
-                    new String[]{Long.toString(dayTime.setJulianDay(julianStartDay - 1))});
+                    new String[]{Long.toString(dayTime.setJulianDay(Utility.getJulianStartDay() - 1))});
 
-            notifyWeather();
         }
-
-        Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
     }
 
     private void notifyWeather() {
