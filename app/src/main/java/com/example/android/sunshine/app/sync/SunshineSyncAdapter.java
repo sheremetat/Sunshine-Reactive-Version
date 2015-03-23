@@ -30,17 +30,13 @@ import android.util.Log;
 import com.example.android.sunshine.app.MainActivity;
 import com.example.android.sunshine.app.R;
 import com.example.android.sunshine.app.Utility;
-import com.example.android.sunshine.app.api.DailyForecast;
-import com.example.android.sunshine.app.api.ForecastService;
 import com.example.android.sunshine.app.api.RetrofitHelper;
 import com.example.android.sunshine.app.api.model.DayForecast;
 import com.example.android.sunshine.app.data.WeatherContract;
 
-import java.util.List;
 import java.util.Vector;
 
-import rx.functions.Action1;
-import rx.functions.Func1;
+import rx.Observable;
 
 public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     public final String LOG_TAG = SunshineSyncAdapter.class.getSimpleName();
@@ -79,53 +75,53 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
 
         RetrofitHelper.getForecastService()
                 .getDailyForecast(locationQuery, format, units, numDays)
-                .map(this::getContentValuesFromForecast)
+                .map(dailyForecast -> {
+                            final long locationId = addLocation(locationQuery,
+                                    dailyForecast.getCity().getName(),
+                                    dailyForecast.getCity().getLocation().getLatitude(),
+                                    dailyForecast.getCity().getLocation().getLongitude());
+
+                            Vector<ContentValues> contentValuesVector = new Vector<>();
+                            Observable.from(dailyForecast.getDailyForecastList())
+                                    .concatMap(dayForecast ->
+                                                    Observable.just(dayForecastToContentValues(
+                                                            dayForecast,
+                                                            locationId,
+                                                            contentValuesVector.size()))
+                                    ).subscribe(contentValuesVector::add);
+
+                            return contentValuesVector;
+                        }
+                )
                 .doOnNext(this::persistWeatherData)
                 .subscribe(contentValuesVector -> notifyWeather());
     }
 
-    private Vector<ContentValues> getContentValuesFromForecast(DailyForecast dailyForecast) {
-        final String locationQuery = Utility.getPreferredLocation(getContext());
-        long locationId = addLocation(locationQuery, dailyForecast.getCity().getName(),
-                dailyForecast.getCity().getLocation().getLatitude(),
-                dailyForecast.getCity().getLocation().getLongitude());
-
-        List<DayForecast> weatherArray = dailyForecast.getDailyForecastList();
-        // Insert the new weather information into the database
-        Vector<ContentValues> cVVector = new Vector<ContentValues>(weatherArray.size());
-
-        // now we work exclusively in UTC
+    private ContentValues dayForecastToContentValues(DayForecast dayForecast, long locationId, int dayAfterToday) {
         Time dayTime = new Time();
-        int count = 0;
-        for (DayForecast dayForecast : weatherArray) {
-            // Cheating to convert this to UTC time, which is what we want anyhow
-            long dateTime = dayTime.setJulianDay(Utility.getJulianStartDay() + count);
+        long dateTime = dayTime.setJulianDay(Utility.getJulianStartDay() + dayAfterToday);
 
-            // These are the values that will be collected.
-            ContentValues weatherValues = new ContentValues();
+        // These are the values that will be collected.
+        ContentValues weatherValues = new ContentValues();
 
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_LOC_KEY, locationId);
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DATE, dateTime);
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_HUMIDITY, dayForecast.getHumidity());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_PRESSURE, dayForecast.getPressure());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WIND_SPEED, dayForecast.getWindSpeed());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DEGREES, dayForecast.getDirection());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP, dayForecast.getTemperature().getHighTemperature());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_MIN_TEMP, dayForecast.getTemperature().getLowTemperature());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_SHORT_DESC, dayForecast.getWeather().getDescription());
-            weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID, dayForecast.getWeather().getId());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_LOC_KEY, locationId);
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DATE, dateTime);
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_HUMIDITY, dayForecast.getHumidity());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_PRESSURE, dayForecast.getPressure());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WIND_SPEED, dayForecast.getWindSpeed());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_DEGREES, dayForecast.getDirection());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_MAX_TEMP, dayForecast.getTemperature().getHighTemperature());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_MIN_TEMP, dayForecast.getTemperature().getLowTemperature());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_SHORT_DESC, dayForecast.getWeather().getDescription());
+        weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID, dayForecast.getWeather().getId());
 
-            cVVector.add(weatherValues);
-
-            count++;
-        }
-        return cVVector;
+        return weatherValues;
     }
 
     /**
      * Take the String representing the complete forecast in JSON Format and
      * pull out the data we need to construct the Strings needed for the wireframes.
-     * <p/>
+     * <p>
      * Fortunately parsing is easy:  constructor takes the JSON string and converts it
      * into an Object hierarchy for us.
      */
