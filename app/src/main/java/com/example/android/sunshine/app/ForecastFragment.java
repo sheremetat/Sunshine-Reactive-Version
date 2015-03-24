@@ -33,6 +33,7 @@ import android.widget.AdapterView;
 import android.widget.ListView;
 
 import com.example.android.sunshine.app.data.WeatherContract;
+import com.example.android.sunshine.app.search.SearchActivity;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 
 import rx.Observable;
@@ -128,6 +129,9 @@ public class ForecastFragment extends Fragment {
 //        }
         if (id == R.id.action_map) {
             openPreferredLocationInMap();
+            return true;
+        } else if (id == R.id.action_search) {
+            startActivity(new Intent(getActivity(), SearchActivity.class));
             return true;
         }
 
