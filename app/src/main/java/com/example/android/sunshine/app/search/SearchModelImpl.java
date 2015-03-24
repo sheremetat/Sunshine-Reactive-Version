@@ -72,7 +72,7 @@ public class SearchModelImpl implements SearchModel {
     public Observable<String> request(String cityName) {
         return RetrofitHelper.getForecastService()
                 .getAccurateByCityName(cityName, "json", "accurate")
-                .doOnError(throwable -> Log.d("TTTTT", throwable.getLocalizedMessage()))
+                .doOnError(throwable -> Log.d("SearchModelImpl", throwable.getLocalizedMessage()))
                 .map(s -> {
                     TypedInput body = s.getBody();
                     StringBuilder out = new StringBuilder();
