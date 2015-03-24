@@ -36,6 +36,7 @@ import com.example.android.sunshine.app.data.WeatherContract;
 import com.example.android.sunshine.app.sync.SunshineSyncAdapter;
 
 import rx.Observable;
+import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
 
@@ -53,6 +54,7 @@ public class ForecastFragment extends Fragment {
     private static final String SELECTED_KEY = "selected_position";
 
     private Handler handler = new Handler();
+    private Subscription cursorSubscription;
 
     private static final int FORECAST_LOADER = 0;
     // For the forecast view we're showing only a small subset of the stored data.
@@ -196,7 +198,11 @@ public class ForecastFragment extends Fragment {
     }
 
     private void loadCachedWeather() {
-        Observable.create(createLoadDataObserver())
+        if(cursorSubscription != null) {
+            cursorSubscription.unsubscribe();
+        }
+
+        cursorSubscription = Observable.create(createLoadDataObserver())
                 .subscribeOn(Schedulers.newThread())
                 .observeOn(AndroidSchedulers.mainThread())
                 .subscribe(data -> {
@@ -273,6 +279,15 @@ public class ForecastFragment extends Fragment {
             outState.putInt(SELECTED_KEY, mPosition);
         }
         super.onSaveInstanceState(outState);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        if(cursorSubscription != null) {
+            cursorSubscription.unsubscribe();
+        }
     }
 
     public void setUseTodayLayout(boolean useTodayLayout) {
