@@ -10,4 +10,11 @@
         <item>@string/pref_units_metric</item>
         <item>@string/pref_units_imperial</item>
     </string-array>
+
+    <string-array name="city_array">
+        <item>Kiev</item>
+        <item>Odessa</item>
+        <item>Munich</item>
+        <item>San-Francisco</item>
+    </string-array>
 </resources>
