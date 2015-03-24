@@ -9,4 +9,5 @@ import android.os.Bundle;
  */
 public interface SearchPresenter {
     void onCreate(Activity activity, Bundle savedInstanceState);
+    void onDestroy();
 }

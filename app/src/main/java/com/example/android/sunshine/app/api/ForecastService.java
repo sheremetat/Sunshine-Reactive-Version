@@ -1,5 +1,6 @@
 package com.example.android.sunshine.app.api;
 
+import retrofit.client.Response;
 import retrofit.http.GET;
 import retrofit.http.Query;
 import rx.Observable;
@@ -16,4 +17,9 @@ public interface ForecastService {
                                    @Query("mode") String mode,
                                    @Query("units") String units,
                                    @Query("cnt") int days);
+
+    @GET("/find")
+    Observable<Response> getAccurateByCityName(@Query("q") String query,
+                                               @Query("mode") String mode,
+                                               @Query("type") String type);
 }
